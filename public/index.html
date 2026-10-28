@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>EventFlow · Encontros que conectam</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/" aria-label="EventFlow início"
+        ><span class="brand-mark">ef</span>EventFlow<span class="brand-dot"
+          >®</span
+        ></a
+      >
+      <nav aria-label="Menu principal">
+        <button data-view="explore" class="nav active">Explorar</button
+        ><button data-view="tickets" class="nav">Minhas inscrições</button
+        ><button data-view="organize" class="nav">Organizar</button>
+      </nav>
+      <div id="account"></div>
+    </header>
+    <main>
+      <section class="hero">
+        <div>
+          <span class="eyebrow">PESSOAS, IDEIAS E NOVAS CONEXÕES</span>
+          <h1>Seu próximo encontro<br />começa <em>aqui.</em></h1>
+          <p>
+            Descubra experiências, garanta seu lugar e dê vida aos seus próprios
+            eventos.
+          </p>
+          <button class="primary" id="hero-organize">
+            Criar um evento <span>↗</span>
+          </button>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orbit o1"></div>
+          <div class="orbit o2"></div>
+          <div class="ticket-art">
+            <span>FAÇA PARTE</span
+            ><strong>Boas ideias.<br />Grandes encontros.</strong>
+            <div class="ticket-line"></div>
+            <small>EVENTFLOW / CONEXÕES REAIS</small>
+          </div>
+          <span class="spark">✳</span>
+        </div>
+      </section>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <section id="content" aria-live="polite"></section>
+    </main>
+    <footer>
+      <span class="brand">EventFlow</span
+      ><span>Projeto acadêmico · Polyglot Persistence</span
+      ><button id="health" class="text-button">Verificar serviços</button>
+    </footer>
+    <dialog id="modal">
+      <div class="modal-head">
+        <h2 id="modal-title"></h2>
+        <button id="close-modal" class="icon" aria-label="Fechar">×</button>
+      </div>
+      <div id="modal-content"></div>
+    </dialog>
+  </body>
+</html>
