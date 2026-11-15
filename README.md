@@ -3,8 +3,8 @@
 Projeto acadêmico de **Performance e Tunning de Dados — Polyglot Persistence**.
 Aplicação completa com frontend, backend e três bancos reais: **MySQL, MongoDB e Apache Cassandra**.
 
-Lucas de Almeida Brandão, 22.124.066-6
-Luan Garcia Candido, 22.225.022-7
+- Lucas de Almeida Brandão, 22.124.066-6.
+- Luan Garcia Candido, 22.225.022-7.
 
 ## 1. Tema e funcionalidades
 
