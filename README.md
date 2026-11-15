@@ -204,16 +204,3 @@ O teste integrado cria registros temporários, executa CRUDs, verifica autoriza�
 5. Cancele a inscrição, edite o evento e depois exclua-o.
 6. Exclua a empresa e a conta para demonstrar todos os CRUDs.
 7. Explique as escolhas dos bancos e a diferença entre consistência transacional e publicação eventual.
-
-## 8. Origem e referências
-
-Esta versão refatora o EventFlow presente no arquivo `Projeto-Polyglot-Persistence-main.zip` fornecido pelo usuário, mantendo o tema e a escolha de MySQL, MongoDB e Cassandra. O backend e a interface foram reorganizados para completar os CRUDs e permitir execução local independente de serviços em nuvem. Não é uma migração automática dos dados da versão anterior: inicia uma base nova.
-
-Base teórica: slides fornecidos de RDB × NoSQL, Document Store, Wide-column Storage, índices, processamento/otimização de consultas e concorrência/recuperação.
-
-Documentação técnica complementar:
-- Cassandra, modelagem orientada a consultas: https://cassandra.apache.org/doc/latest/cassandra/developing/data-modeling/data-modeling_logical.html
-- Cassandra, chaves e tabelas: https://cassandra.apache.org/doc/latest/cassandra/developing/cql/ddl.html
-- MySQL, leituras com bloqueio: https://dev.mysql.com/doc/refman/8.0/en/innodb-locking-reads.html
-
-Em CAP, a escolha entre consistência e disponibilidade se manifesta durante uma partição de rede. Não se deve classificar o comportamento de toda implantação apenas pelo modelo do banco. Da mesma forma, o protocolo de bloqueio em duas fases (2PL) é diferente do protocolo de commit em duas fases (2PC).
