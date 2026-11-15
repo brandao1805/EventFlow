@@ -195,8 +195,6 @@ docker compose exec app npm run test:integration
 
 O teste integrado cria registros temporários, executa CRUDs, verifica autorização, disputa a última vaga, aguarda a sincronização Cassandra e limpa os registros que criou. Execute numa base de demonstração: ele cria e remove os próprios dados de teste. O fluxo de integração contínua em `.github/workflows/ci.yml` sobe os três bancos e executa esse teste em um runner GitHub com Docker.
 
-**Validação desta entrega:** consulte `docs/VALIDACAO.md`. Não há resultados de benchmark inventados nem alegação de teste integrado quando ele não foi executado.
-
 ## 7. Roteiro rápido de demonstração
 
 1. Crie uma conta de organizador, entre e cadastre uma empresa fictícia.
@@ -206,8 +204,6 @@ O teste integrado cria registros temporários, executa CRUDs, verifica autoriza�
 5. Cancele a inscrição, edite o evento e depois exclua-o.
 6. Exclua a empresa e a conta para demonstrar todos os CRUDs.
 7. Explique as escolhas dos bancos e a diferença entre consistência transacional e publicação eventual.
-
-Veja também `docs/APRESENTACAO.md` e `docs/MODELAGEM.md`.
 
 ## 8. Origem e referências
 
