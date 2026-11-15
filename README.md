@@ -3,6 +3,9 @@
 Projeto acadêmico de **Performance e Tunning de Dados — Polyglot Persistence**.
 Aplicação completa com frontend, backend e três bancos reais: **MySQL, MongoDB e Apache Cassandra**.
 
+Lucas de Almeida Brandão, 22.124.066-6
+Luan Garcia Candido, 22.225.022-7
+
 ## 1. Tema e funcionalidades
 
 O EventFlow conecta participantes a empresas organizadoras. O usuário pode criar uma conta, explorar eventos por mês, confirmar uma inscrição, editar uma observação pessoal e cancelar a inscrição. O organizador cadastra sua empresa, publica eventos e gerencia sua agenda.
@@ -206,11 +209,7 @@ O teste integrado cria registros temporários, executa CRUDs, verifica autoriza�
 
 Veja também `docs/APRESENTACAO.md` e `docs/MODELAGEM.md`.
 
-## 8. Entrega pelo repositório
-
-Envie **o conteúdo desta pasta** ao seu repositório GitHub/GitLab, incluindo `README.md`, código, `package-lock.json`, esquemas, Compose e testes. Não envie `node_modules`, `.env`, volumes ou credenciais. Repositório do projeto: https://github.com/brandao1805/EventFlow
-
-## 9. Origem e referências
+## 8. Origem e referências
 
 Esta versão refatora o EventFlow presente no arquivo `Projeto-Polyglot-Persistence-main.zip` fornecido pelo usuário, mantendo o tema e a escolha de MySQL, MongoDB e Cassandra. O backend e a interface foram reorganizados para completar os CRUDs e permitir execução local independente de serviços em nuvem. Não é uma migração automática dos dados da versão anterior: inicia uma base nova.
 
