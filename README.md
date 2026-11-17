@@ -177,6 +177,22 @@ Um único banco poderia atender ao tamanho atual do projeto. A escolha dos três
 - **MongoDB — cadastro e edição de empresas.** Guarda o perfil de cada organizadora em um único documento. Quando o organizador abre o perfil para consultar ou editar, a aplicação recupera nome, contato, endereço e especialidades juntos, sem precisar montar o perfil com junções.
 - **Cassandra — publicação e consulta de eventos.** Quando o organizador publica ou edita um evento, os dados são gravados de forma assíncrona no catálogo. A tela **Explorar** consulta `events_by_month` para exibir os eventos do mês selecionado, enquanto o backend usa `events_by_id` para recuperar um evento específico. Cada consulta acessa diretamente a partição correspondente.
 
+### Comparação com outros bancos de dados
+
+| Função no EventFlow | Banco atual | Alternativa | O que mudaria |
+|---|---|---|---|
+| **Contas, inscrições e controle de vagas** | **MySQL** | **PostgreSQL** | O PostgreSQL também permite registrar a inscrição e atualizar a ocupação na mesma transação, com bloqueio para proteger a última vaga. A regra de negócio continuaria igual; seria necessário adaptar a conexão e os trechos de SQL específicos do MySQL. |
+| **Perfis das empresas** | **MongoDB** | **MySQL** | O MySQL poderia guardar o perfil em colunas e representar as especialidades em uma tabela relacionada ou em um campo JSON. Com tabelas separadas, a consulta precisaria reunir esses dados. No MongoDB, endereço e especialidades ficam no mesmo documento e são recuperados juntos. |
+| **Catálogo de eventos por mês e por ID** | **Cassandra** | **PostgreSQL** | No PostgreSQL, os eventos poderiam ficar em uma única tabela, com chave primária para a busca por ID e um índice na data para a consulta mensal. No Cassandra, cada consulta tem uma tabela própria e acessa a partição correspondente. Isso torna o caminho de leitura explícito, mas exige gravar e manter o evento nas duas tabelas. |
+
+Para o volume atual do EventFlow, **um único banco relacional também poderia atender ao projeto** e simplificaria a operação. A arquitetura com três bancos foi escolhida para demonstrar **persistência poliglota** na prática: transações para inscrições, documentos para perfis e modelagem por consulta para o catálogo. Essas vantagens são de modelagem; sem benchmarks, não é possível afirmar que a arquitetura atual é mais rápida.
+
+### Alternativa inadequada: substituir o MySQL pelo Cassandra nas inscrições
+
+Usar o Cassandra com o mesmo modelo do MySQL não atenderia à regra da **última vaga**. No EventFlow, o MySQL verifica a disponibilidade, grava a inscrição e atualiza a ocupação na mesma transação, com bloqueio no registro do evento. Assim, duas pessoas não conseguem reservar a mesma última vaga.
+
+Se essas etapas fossem executadas como operações independentes no Cassandra, duas requisições poderiam ler que ainda há uma vaga e confirmar duas inscrições. Seria possível redesenhar o modelo para usar operações condicionais, mas isso mudaria a forma de armazenar e controlar as reservas. Por isso, o EventFlow usa **MySQL para inscrições e vagas** e **Cassandra para o catálogo de eventos**.
+
 ## 5. Endpoints
 
 Mutações enviam JSON e o cabeçalho `X-Requested-With: EventFlow`. Rotas privadas usam o cookie da sessão.
