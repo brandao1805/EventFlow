@@ -193,6 +193,16 @@ Usar o Cassandra com o mesmo modelo do MySQL não atenderia à regra da **últim
 
 Se essas etapas fossem executadas como operações independentes no Cassandra, duas requisições poderiam ler que ainda há uma vaga e confirmar duas inscrições. Seria possível redesenhar o modelo para usar operações condicionais, mas isso mudaria a forma de armazenar e controlar as reservas. Por isso, o EventFlow usa **MySQL para inscrições e vagas** e **Cassandra para o catálogo de eventos**.
 
+### Outras alternativas inadequadas para o EventFlow
+
+| Alternativa | Por que seria inadequada |
+|---|---|
+| **Usar Redis apenas como cache para guardar inscrições** | Se o cache perder os dados ou as chaves expirarem, o sistema pode perder inscrições confirmadas. O Redis pode ajudar a acelerar consultas, mas um cache descartável não deve ser a única fonte de dados das reservas. |
+| **Usar Cassandra para os perfis de empresas mantendo apenas uma tabela com chave por ID** | O EventFlow precisa localizar empresas pelo **CNPJ** e pelo **ID do proprietário**. Uma tabela organizada somente pelo ID da empresa não atende diretamente a essas duas consultas. Seria necessário criar estruturas adicionais e manter os dados sincronizados. |
+| **Usar um banco de grafos para o catálogo de eventos** | As consultas principais são **listar eventos por mês** e **buscar um evento por ID**. Um banco de grafos poderia atendê-las, mas sua principal vantagem, percorrer relacionamentos, não seria aproveitada. Ele faria mais sentido se o projeto recomendasse eventos a partir de conexões entre participantes, empresas e interesses. |
+
+Essas alternativas são inadequadas **para a função e a configuração descritas**. A escolha depende das consultas que o sistema faz e das garantias que cada operação exige.
+
 ## 5. Endpoints
 
 Mutações enviam JSON e o cabeçalho `X-Requested-With: EventFlow`. Rotas privadas usam o cookie da sessão.
