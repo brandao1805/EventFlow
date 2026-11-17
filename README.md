@@ -203,7 +203,88 @@ Se essas etapas fossem executadas como operações independentes no Cassandra, d
 
 Essas alternativas são inadequadas **para a função e a configuração descritas**. A escolha depende das consultas que o sistema faz e das garantias que cada operação exige.
 
-## 5. Endpoints
+## 5. Linguagens e tecnologias utilizadas
+
+| Parte do projeto | Linguagens e tecnologias | Motivo da escolha |
+|---|---|---|
+| Frontend | HTML, CSS e JavaScript puro | HTML estrutura as páginas, CSS define a apresentação e JavaScript controla interações, formulários e chamadas à API REST. Essas tecnologias são executadas diretamente no navegador e permitem construir a interface sem uma etapa de compilação. |
+| Backend | JavaScript executado no Node.js, com Express | Permite usar JavaScript também no servidor. O modelo assíncrono do Node.js atende às operações de entrada e saída da API, e o Express organiza as rotas HTTP e o tratamento das requisições. Existem drivers para os três bancos escolhidos. |
+| MySQL | SQL, pelo driver `mysql2` | SQL permite definir tabelas, relacionamentos e restrições, consultar os registros e executar as transações usadas no controle de vagas. |
+| MongoDB | Operações do driver oficial `mongodb` em JavaScript | Permite trabalhar com documentos e objetos JavaScript, usando filtros, inserções, atualizações e exclusões para os perfis das empresas. |
+| Cassandra | CQL, pelo driver `cassandra-driver` | CQL permite definir o keyspace e as tabelas e consultar os eventos pelas chaves de partição previstas na modelagem. |
+
+O backend implementa as regras de negócio em JavaScript. Node.js é o ambiente de execução e Express é o framework HTTP. A comunicação entre frontend e backend usa HTTP e JSON.
+
+## 6. Teorema CAP e indisponibilidade dos bancos
+
+O teorema CAP trata das garantias de um sistema distribuído durante uma partição de rede. Nesse contexto, consistência significa que uma leitura observa a escrita mais recente ou recebe um erro. Disponibilidade significa que toda requisição a um nó em funcionamento recebe uma resposta válida. Tolerância a partições considera a perda de comunicação entre partes do sistema.
+
+Durante uma partição, um sistema pode restringir operações para preservar consistência ou continuar atendendo operações com possibilidade de versões divergentes. A configuração das réplicas, os níveis de leitura e escrita e a operação solicitada determinam o comportamento.
+
+### Efeitos no ambiente atual do EventFlow
+
+O Compose executa uma instância de MySQL, uma de MongoDB e uma de Cassandra. A indisponibilidade de uma delas afeta as operações que a utilizam.
+
+| Banco indisponível | Efeito na aplicação | Recuperação |
+|---|---|---|
+| MySQL | Cadastro de contas, login, validação de sessões, inscrições e controle de vagas ficam indisponíveis. A listagem pública também depende do MySQL para consultar ocupação e estado de publicação dos eventos. | As operações podem ser retomadas quando o banco voltar. Transações incompletas são tratadas pelos mecanismos de recuperação do InnoDB. |
+| MongoDB | Consulta, criação, edição e exclusão de perfis de empresas ficam indisponíveis. A criação de eventos também é afetada porque consulta a empresa organizadora. | O serviço pode voltar a atender após o banco se recuperar. Se uma escrita tiver resultado incerto, a aplicação deve consultar o perfil antes de repetir a operação. |
+| Cassandra | As consultas ao catálogo ficam indisponíveis. Com MySQL e MongoDB disponíveis, a criação de um evento pode registrar a publicação pendente na outbox e retornar `202 Accepted`. Operações que precisam ler o evento no Cassandra, como sua edição, também podem falhar. | O publicador tenta novamente as tarefas pendentes e conclui a sincronização quando o Cassandra voltar. |
+
+Esses efeitos consideram a aplicação já inicializada. Na inicialização, o backend precisa conectar aos três bancos e preparar os esquemas e índices para começar a atender.
+
+### Comportamento em implantações distribuídas
+
+- **MySQL** pode ser implantado com diferentes mecanismos de replicação. As garantias durante falhas dependem da topologia e do protocolo de confirmação. No EventFlow, as transações preservam as regras locais de contas e reservas, e o único servidor precisa estar acessível para executar essas operações.
+- **MongoDB**, em um replica set, usa um primário para as escritas e uma maioria de votos para eleger o primário. Escritas com `w: "majority"` dependem da confirmação da maioria exigida. Uma partição sem essa maioria perde a capacidade de confirmar essas escritas.
+- **Cassandra** oferece consistência ajustável por operação. Com níveis como `ONE`, uma réplica pode responder e outras podem estar desatualizadas. Com `LOCAL_QUORUM`, a operação exige uma maioria das réplicas da partição no datacenter local e falha quando essa quantidade fica inacessível.
+
+## 7. Consistência, réplicas e tolerância a falhas
+
+### Consistência no MySQL
+
+O MySQL usa o mecanismo InnoDB e transações ACID para manter as regras de integridade. Chaves estrangeiras e restrições de unicidade protegem os relacionamentos e impedem registros duplicados.
+
+Na inscrição, o backend bloqueia o registro do evento com `SELECT ... FOR UPDATE`, verifica a capacidade, insere a inscrição e atualiza a ocupação na mesma transação. Uma falha antes do commit provoca rollback. Isso mantém inscrição e ocupação coerentes e protege a última vaga contra requisições concorrentes.
+
+### Consistência no MongoDB
+
+Uma operação de escrita sobre um documento é atômica, inclusive quando altera vários campos desse documento. O EventFlow armazena o perfil agregado de cada empresa em um documento e usa índices únicos para `cnpj` e `ownerId`.
+
+O ambiente atual usa MongoDB standalone. Em um replica set, a replicação para secundários ocorre de forma assíncrona e a visibilidade das escritas depende de `readConcern`, `writeConcern` e preferência de leitura. Por exemplo, escritas com `w: "majority"` esperam confirmação da maioria exigida, enquanto leituras com `readConcern: "majority"` consultam dados confirmados pela maioria. Leituras em secundários podem apresentar atraso. Essas opções precisam ser escolhidas conforme a garantia desejada.
+
+### Consistência no Cassandra
+
+O Cassandra permite configurar quantas réplicas precisam participar de uma leitura ou confirmar uma escrita. No EventFlow, o keyspace usa `NetworkTopologyStrategy`, com fator de replicação **1** no `datacenter1`. O driver usa **`LOCAL_QUORUM`** como nível padrão.
+
+Com RF = 1, o quórum local é uma réplica. A única cópia precisa responder e sua queda interrompe as operações sobre os dados armazenados nela.
+
+As tabelas `events_by_id` e `events_by_month` representam duas formas de consultar o evento. Elas são projeções mantidas pelo publicador. A replicação interna do Cassandra cria cópias de cada partição conforme o RF configurado. Neste ambiente, cada partição possui uma única cópia.
+
+### Consistência entre os três bancos
+
+A publicação do catálogo tem consistência eventual. MySQL confirma o registro de controle e a tarefa da outbox na mesma transação. Posteriormente, o publicador grava as projeções no Cassandra e marca a publicação como sincronizada. Durante esse intervalo, o evento permanece pendente e a aplicação restringe sua exposição e suas inscrições.
+
+O batch com log do Cassandra auxilia a conclusão das escritas nas projeções, mas leituras concorrentes podem observar uma atualização parcial entre partições. A relação entre conta MySQL e empresa MongoDB é coordenada pela aplicação e pode exigir reconciliação se uma falha ocorrer entre as operações dos bancos.
+
+### Quantas instâncias podem ficar indisponíveis?
+
+| Banco e configuração | Comportamento na falha | Falhas toleradas mantendo as operações indicadas |
+|---|---|---|
+| MongoDB atual, standalone | A queda da única instância interrompe as operações sobre empresas. | **0 instâncias.** |
+| Cassandra atual, RF = 1 e `LOCAL_QUORUM` | A queda do único nó deixa a única réplica das partições inacessível. | **0 instâncias.** |
+| MongoDB em um exemplo com três membros votantes, todos com dados, elegíveis e sincronizados | Os dois membros restantes podem manter a maioria. Se o primário cair, há uma interrupção durante a eleição de outro primário. Escritas com `w: "majority"` precisam de confirmação de dois membros. | **1 instância**, com os dois membros restantes conectados. Duas quedas impedem eleger um primário e confirmar novas escritas por maioria. |
+| Cassandra em um exemplo com RF = 3 e `LOCAL_QUORUM` em leituras e escritas, em um datacenter | Cada operação precisa de duas das três réplicas da partição. | **1 réplica por partição.** Com duas réplicas inacessíveis, as operações por quórum falham. |
+
+Os exemplos com três réplicas ilustram uma possível implantação futura. A configuração entregue usa as instâncias únicas descritas acima.
+
+Para o Cassandra, o quórum é calculado por `floor(RF / 2) + 1`. Com RF = 3, o resultado é 2. Quando leituras e escritas usam esse quórum no mesmo datacenter, seus conjuntos de réplicas se sobrepõem. Isso permite que leituras posteriores observem as escritas confirmadas, considerando operações concluídas sem concorrência. Operações condicionais com garantias de linearização exigem os mecanismos de lightweight transactions do Cassandra.
+
+A quantidade de falhas tolerada depende das réplicas de cada partição. Em um cluster maior, a queda de nós precisa ser avaliada conforme quais cópias de cada partição foram afetadas. Particionamento distribui os dados entre nós, enquanto replicação mantém cópias que podem responder quando um nó falha.
+
+Os volumes Docker preservam os dados durante reinícios usuais. A tolerância à perda permanente de dados depende também de backups e recuperação. Se o quórum se perder, as operações que o exigem ficam indisponíveis até sua recomposição.
+
+## 8. Endpoints
 
 Mutações enviam JSON e o cabeçalho `X-Requested-With: EventFlow`. Rotas privadas usam o cookie da sessão.
 
@@ -225,7 +306,7 @@ Mutações enviam JSON e o cabeçalho `X-Requested-With: EventFlow`. Rotas priva
 
 `201`: criação imediata; `202`: publicação assíncrona; `400`: entrada inválida; `401`: sessão ausente; `403`: falta de autorização; `404`: recurso inexistente; `409`: conflito; `429`: limite de tentativas; `503`: indisponibilidade.
 
-## 6. Testes e evidências
+## 9. Testes e evidências
 
 Com Node.js 22 ou superior, sem bancos:
 
@@ -245,7 +326,7 @@ docker compose exec app npm run test:integration
 
 O teste integrado cria registros temporários, executa CRUDs, verifica autorização, disputa a última vaga, aguarda a sincronização Cassandra e limpa os registros que criou. Execute numa base de demonstração: ele cria e remove os próprios dados de teste. O fluxo de integração contínua em `.github/workflows/ci.yml` sobe os três bancos e executa esse teste em um runner GitHub com Docker.
 
-## 7. Roteiro rápido de demonstração
+## 10. Roteiro rápido de demonstração
 
 1. Crie uma conta de organizador, entre e cadastre uma empresa fictícia.
 2. Publique um evento futuro com uma vaga. Aguarde desaparecer a indicação de processamento.
