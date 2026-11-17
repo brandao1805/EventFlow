@@ -153,6 +153,24 @@ A outbox evita perder alterações pendentes no catálogo, mas não é backup. P
 
 O Compose é **para uso acadêmico local**: apenas a aplicação é publicada em `127.0.0.1`; bancos ficam na rede interna, sem portas no host. MongoDB e Cassandra locais não têm autenticação configurada. Não publique esse Compose diretamente na internet. Uma implantação pública exige HTTPS, `COOKIE_SECURE=true`, segredos fortes, autenticação nos bancos, backups e política de acesso. Os volumes dão persistência após reiniciar, não tolerância à perda da máquina.
 
+### Uso, justificativa e vantagens dos bancos de dados
+
+O EventFlow adota **persistência poliglota**: cada banco foi escolhido conforme os dados que armazena e as operações que precisa atender.
+
+| Banco | Onde é usado | Por que foi escolhido | Vantagem no EventFlow |
+|---|---|---|---|
+| **MySQL — relacional** | Contas, sessões, inscrições e controle de vagas. | As inscrições relacionam usuários e eventos. Confirmar uma inscrição e atualizar a ocupação são operações que precisam acontecer na mesma transação. | Mantém a integridade dos dados e evita que duas pessoas ocupem a mesma última vaga, mesmo quando solicitam a inscrição ao mesmo tempo. |
+| **MongoDB — orientado a documentos** | Perfis das empresas organizadoras, com nome, contato, endereço e especialidades. | Esses dados costumam ser consultados juntos e podem ser armazenados em um único documento por empresa. | Permite recuperar o perfil completo sem `JOIN` e incluir campos opcionais conforme o perfil evolui. |
+| **Cassandra — wide-column** | Catálogo de eventos publicados, consultado por mês ou por ID. | Cada consulta tem uma tabela própria: `events_by_month`, com partição por mês, e `events_by_id`, com partição por ID. | Permite consultar diretamente a partição correspondente sem percorrer o catálogo inteiro. Para atender aos dois padrões de consulta, os dados do evento são gravados nas duas tabelas. |
+
+### Por que estes bancos foram escolhidos?
+
+- **MySQL para inscrições e vagas.** A confirmação de uma inscrição precisa registrar o participante e atualizar a ocupação do evento na mesma transação. O MySQL permite bloquear o registro do evento durante essa operação, evitando que duas pessoas ocupem a última vaga. O PostgreSQL também atenderia a esse requisito; a escolha foi usar um banco relacional com suporte a transações e restrições de integridade.
+- **MongoDB para perfis de empresas.** Endereço, contato e especialidades costumam ser exibidos juntos. Um documento por empresa permite recuperar o perfil completo em uma consulta e adicionar campos opcionais conforme necessário. No MySQL, também seria possível modelar esse perfil, mas o MongoDB permite armazená-lo diretamente na estrutura usada pela aplicação.
+- **Cassandra para o catálogo de eventos.** O site faz duas consultas principais: listar eventos por mês e buscar um evento pelo ID. O Cassandra permite criar uma tabela para cada consulta, usando o mês ou o ID como chave de partição. MySQL e MongoDB também poderiam atender a essas consultas com índices. A escolha do Cassandra permite demonstrar a modelagem orientada às consultas, com o custo de gravar os dados do evento em duas tabelas.
+
+Um único banco poderia atender ao tamanho atual do projeto. A escolha dos três faz parte da proposta de **persistência poliglota**: aplicar modelos diferentes conforme as necessidades de cada parte do sistema.
+
 ## 5. Endpoints
 
 Mutações enviam JSON e o cabeçalho `X-Requested-With: EventFlow`. Rotas privadas usam o cookie da sessão.
