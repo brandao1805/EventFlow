@@ -171,6 +171,12 @@ O EventFlow adota **persistência poliglota**: cada banco foi escolhido conforme
 
 Um único banco poderia atender ao tamanho atual do projeto. A escolha dos três faz parte da proposta de **persistência poliglota**: aplicar modelos diferentes conforme as necessidades de cada parte do sistema.
 
+### Como cada banco ajuda nas funções do EventFlow
+
+- **MySQL — cadastro, login e inscrições.** Guarda as contas e sessões usadas para acessar o sistema. Quando alguém confirma ou cancela uma inscrição, o MySQL atualiza a inscrição e a ocupação do evento na mesma transação. Assim, o número de vagas disponíveis acompanha as inscrições, mesmo quando duas pessoas tentam reservar a última vaga ao mesmo tempo.
+- **MongoDB — cadastro e edição de empresas.** Guarda o perfil de cada organizadora em um único documento. Quando o organizador abre o perfil para consultar ou editar, a aplicação recupera nome, contato, endereço e especialidades juntos, sem precisar montar o perfil com junções.
+- **Cassandra — publicação e consulta de eventos.** Quando o organizador publica ou edita um evento, os dados são gravados de forma assíncrona no catálogo. A tela **Explorar** consulta `events_by_month` para exibir os eventos do mês selecionado, enquanto o backend usa `events_by_id` para recuperar um evento específico. Cada consulta acessa diretamente a partição correspondente.
+
 ## 5. Endpoints
 
 Mutações enviam JSON e o cabeçalho `X-Requested-With: EventFlow`. Rotas privadas usam o cookie da sessão.
